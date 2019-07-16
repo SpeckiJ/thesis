@@ -14,14 +14,6 @@ import java.util.Properties;
 @SuppressWarnings("CheckStyle")
 public class IntueriUtil {
 
-    public final static String managementChannel = "intueri-management";
-
-    public final static String outputChannel = "intueri-out";
-
-    public final static String messageIdHeader = "detector_id";
-
-    public final static String messageTypeHeader = "type";
-
     public static Properties kafkaProperties(String id, String server) {
         Properties properties = new Properties();
         properties.put(StreamsConfig.APPLICATION_ID_CONFIG, id);
