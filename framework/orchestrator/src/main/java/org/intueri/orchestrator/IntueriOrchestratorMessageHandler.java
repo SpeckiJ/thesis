@@ -1,6 +1,6 @@
 /**
  * Copyright (C) 2019 ${author} <speckij@posteo.net>
- *
+ * <p>
  * This software may be modified and distributed under the terms
  * of the MIT license. See the LICENSE file for details.
  */
@@ -12,6 +12,8 @@ import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsBuilder;
+import org.apache.kafka.streams.errors.InvalidStateStoreException;
+import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.processor.Processor;
 import org.apache.kafka.streams.processor.ProcessorContext;
 import org.apache.kafka.streams.processor.ProcessorSupplier;
@@ -43,6 +45,7 @@ public class IntueriOrchestratorMessageHandler {
     private final String detectorString = "intueri-detector";
     private final String schemaString = "schema";
     private final String statusString = "status";
+    private final String lastContactString = "lastContact";
     private final String availableRulesString = "availableRules";
     private final String enabledRulesString = "enabledRules";
 
@@ -58,7 +61,7 @@ public class IntueriOrchestratorMessageHandler {
     private KafkaProducer<String, String> kafkaOutput;
 
     private ReadOnlyKeyValueStore<String, String> store;
-    private String storeName;
+    private String globalStorage;
 
     private ApplicationConfig config;
 
@@ -69,19 +72,20 @@ public class IntueriOrchestratorMessageHandler {
 
     @EventListener(ContextRefreshedEvent.class)
     private void init() {
-        storeName = "intueri-store";
+        globalStorage = "intueri-store";
 
         final StoreBuilder<KeyValueStore<String, String>> storeBuilder = Stores.keyValueStoreBuilder(
-                Stores.persistentKeyValueStore(storeName),
+                Stores.persistentKeyValueStore(globalStorage),
                 Serdes.String(),
                 Serdes.String()
         );
-        builder.addStateStore(storeBuilder);
-        builder.stream(Pattern.compile("intueri-detector-.*"))
-                .process(new ManagementProcessorSupplier(), storeName);
+        builder.addGlobalStore(storeBuilder,
+                "intueri-storage",
+                Consumed.with(Serdes.String(), Serdes.String()),
+                new StorageProcessorSupplier());
 
-        builder.stream(Pattern.compile("intueri-storage"))
-                .process(new StorageProcessorSupplier(), storeName);
+        builder.stream(Pattern.compile("intueri-detector-.*"))
+                .process(new ManagementProcessorSupplier());
 
         Properties properties = IntueriUtil.kafkaProperties(
                 config.getApplicationId(),
@@ -89,11 +93,23 @@ public class IntueriOrchestratorMessageHandler {
         );
         kafkaOutput = new KafkaProducer<>(properties);
         KafkaStreams streams = new KafkaStreams(builder.build(), properties);
-        streams.cleanUp();
+//        streams.cleanUp();
 
         streams.setStateListener((newState, oldState) -> {
             if (oldState == KafkaStreams.State.REBALANCING && newState == KafkaStreams.State.RUNNING) {
-                store = streams.store(storeName, QueryableStoreTypes.keyValueStore());
+                while (true) {
+                    try {
+                        store = streams.store(globalStorage, QueryableStoreTypes.keyValueStore());
+                        return;
+                    } catch (InvalidStateStoreException e) {
+                        logger.warn("Could not find State Store. Waiting and retrying.");
+                        try {
+                            Thread.sleep(5000);
+                        } catch (InterruptedException e1) {
+                            logger.warn("Thread.sleep was interrupted: {}", e.getMessage());
+                        }
+                    }
+                }
             }
         });
         streams.start();
@@ -146,52 +162,62 @@ public class IntueriOrchestratorMessageHandler {
 
         @Override
         public void init(ProcessorContext context) {
-            this.store = (KeyValueStore) context.getStateStore(storeName);
+            this.store = (KeyValueStore) context.getStateStore(globalStorage);
             this.context = context;
         }
 
         @Override
         public void process(String key, String value) {
             this.topic = context.topic();
-            // Seperate general topics from detector-specific ones
-            if (topic.length() > 20) {
-                this.detectorId = UUID.fromString(topic.substring(8));
-            }
+            this.detectorId = UUID.fromString(topic.substring(detectorPrefix.length()));
             try {
                 switch (MessageType.valueOf(key)) {
                     case SCHEMA:
                         logger.trace("Received schema update from detector: {}", detectorId);
-                        JSONObject schema = new JSONObject(value);
+                        JSONObject schema = null;
+                        String schemaId = null;
 
                         // Check rules that are applicable to this schema
-                        IntueriValidationAPI validator = new SimpleValidator(value);
-                        KeyValueIterator<String, String> iterator = store.all();
+                        KeyValueIterator<String, String> schemaIterator = store.range(schemaPrefix, "schema1");
                         Set<String> availableRules = new HashSet<>();
-                        String schemaId = UUID.randomUUID().toString();
-                        while (iterator.hasNext()) {
-                            KeyValue<String, String> next = iterator.next();
-                            if (next.key.substring(0, rulePrefix.length()).equals(rulePrefix)
-                                    && validator.validate(next.value)) {
-                                availableRules.add(next.key.substring(rulePrefix.length()));
-                            } else if (next.key.substring(0, schemaPrefix.length()).equals(schemaPrefix)) {
-                                // Deduplicate schemas
-                                if (next.value.equals(value)) {
-                                    schemaId = new JSONObject(next.value).getString(id);
-                                }
+
+                        // Check if schema already exists
+                        while (schemaIterator.hasNext()) {
+                            KeyValue<String, String> next = schemaIterator.next();
+                            if (next.value.equals(value)) {
+                                schema = new JSONObject(next.value);
+                                schemaId = next.key;
+                                schemaIterator.close();
+                                break;
                             }
                         }
-                        iterator.close();
-                        schema.put(id, schemaId);
-                        final String schemaKey = schemaPrefix + schemaId;
-                        logger.trace("Received new schema for storage: {}", schemaKey);
-                        store.put(schemaKey, schema.toString());
-                        // Update reference to schema in detector
+                        // Check all rules for applicability if schema is new
+                        if (schema == null) {
+                            KeyValueIterator<String, String> ruleIterator = store.range(rulePrefix, "rule1");
+                            IntueriValidationAPI validator = new SimpleValidator(value);
+                            while (ruleIterator.hasNext()) {
+                                KeyValue<String, String> next = ruleIterator.next();
+                                if (validator.validate(next.value)) {
+                                    availableRules.add(next.key.substring(rulePrefix.length()));
+                                }
+                            }
+                            schema = new JSONObject(value);
+                            schemaId = UUID.randomUUID().toString();
+                            schema.put(id, schemaId);
+                            final String schemaKey = schemaPrefix + schemaId;
+                            logger.trace("Received new schema for storage: {}", schemaKey);
+                            store.put(schemaKey, schema.toString());
+                            ruleIterator.close();
+                        }
+
+                        // Update detector
                         String storedDetector = store.get(topic);
                         if (storedDetector != null) {
-                            logger.trace("Updating schema & availableRules for detector {} in storage.", detectorId);
+                            logger.trace("Updating schema/availableRules for detector {} in storage.", detectorId);
                             JSONObject detector = new JSONObject(storedDetector);
                             detector.put(schemaString, schema.getString(id));
                             detector.put(availableRulesString, availableRules);
+                            detector.put(lastContactString, System.currentTimeMillis());
                             store.put(topic, detector.toString());
                         } else {
                             logger.error("Received schema for unknown detector: {}", detectorId);
@@ -204,14 +230,20 @@ public class IntueriOrchestratorMessageHandler {
                         // Update detector if it already exists
                         if (stored != null) {
                             logger.trace("Updating status for detector {} in local storage.", detectorId);
-                            JSONObject detector = new JSONObject(stored);
+                            JSONObject oldStatus = new JSONObject(stored);
                             JSONObject newStatus = new JSONObject(value);
-                            detector.put(statusString, newStatus.getString(statusString));
-                            store.put(topic, detector.toString());
+                            newStatus.put(lastContactString, System.currentTimeMillis());
+                            newStatus.put(availableRulesString, oldStatus.getJSONArray(availableRulesString));
+                            store.put(topic, newStatus.toString());
                         } else {
                             // Create new detector if it does not exist
-                            JSONObject jsonValue = new JSONObject(value);
-                            store.put(topic, value);
+                            try {
+                                // Validate value is json
+                                new JSONObject(value);
+                                store.put(topic, value);
+                            } catch (Exception e) {
+                                logger.error("Could not parse value to JSON: {}", e.getMessage());
+                            }
                         }
                         break;
                     default:
@@ -233,7 +265,7 @@ public class IntueriOrchestratorMessageHandler {
 
         @Override
         public void init(ProcessorContext context) {
-            this.store = (KeyValueStore) context.getStateStore(storeName);
+            this.store = (KeyValueStore) context.getStateStore(globalStorage);
         }
 
         @Override
@@ -244,27 +276,29 @@ public class IntueriOrchestratorMessageHandler {
                         JSONObject rule = new JSONObject(value);
                         final String ruleKey = rulePrefix + rule.getString(id);
                         logger.trace("Received new rule for storage: {}", ruleKey);
-                        store.put(ruleKey, value);
+                        if (store.get(ruleKey) == null) {
+                            store.put(ruleKey, value);
 
-                        // Update detectors with new rule if rule is applicable
-                        KeyValueIterator<String, String> it = store.range(detectorString, detectorString + "1");
-                        while (it.hasNext()) {
-                            KeyValue<String, String> next = it.next();
-                            // Iterate over detectors only
-                            if (next.key.substring(0, detectorPrefix.length()).equals(detectorPrefix)) {
-                                JSONObject detector = new JSONObject(next.value);
-                                logger.trace("Checking rule applicability for detector: {}", detector.get(id));
-                                String rawSchema = store.get(schemaPrefix + detector.getString(schemaString));
-                                IntueriValidationAPI validation = new SimpleValidator(rawSchema);
-                                if (validation.validate(value)) {
-                                    logger.trace("Adding Rule to availableRules for detector: {}.", detector.get(id));
-                                    detector.getJSONArray(availableRulesString)
-                                            .put(rule.getString(id));
-                                    store.put(next.key, detector.toString());
+                            // Update detectors with new rule if rule is applicable
+                            KeyValueIterator<String, String> it = store.range(detectorString, detectorString + "1");
+                            while (it.hasNext()) {
+                                KeyValue<String, String> next = it.next();
+                                // Iterate over detectors only
+                                if (next.key.substring(0, detectorPrefix.length()).equals(detectorPrefix)) {
+                                    JSONObject detector = new JSONObject(next.value);
+                                    logger.trace("Checking rule applicability for detector: {}", detector.get(id));
+                                    String rawSchema = store.get(schemaPrefix + detector.getString(schemaString));
+                                    IntueriValidationAPI validation = new SimpleValidator(rawSchema);
+                                    if (validation.validate(value)) {
+                                        logger.trace("Adding Rule to availableRules for detector: {}.", detector.get(id));
+                                        detector.getJSONArray(availableRulesString)
+                                                .put(rule.getString(id));
+                                        store.put(next.key, detector.toString());
+                                    }
                                 }
                             }
+                            it.close();
                         }
-                        it.close();
                         break;
                     case CONFIG:
                         JSONObject conf = new JSONObject(value);
@@ -273,7 +307,9 @@ public class IntueriOrchestratorMessageHandler {
                         }
                         final String configKey = configPrefix + conf.getString(id);
                         logger.trace("Received new config for storage: {}", configKey);
-                        store.put(configKey, conf.toString());
+                        if (store.get(configKey) == null) {
+                            store.put(configKey, conf.toString());
+                        }
                         break;
                     default:
                         logger.warn("Ignoring message on topic intueri-storage with type: {}", key);

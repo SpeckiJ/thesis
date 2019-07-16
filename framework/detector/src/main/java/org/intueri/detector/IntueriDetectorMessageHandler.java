@@ -1,6 +1,6 @@
 /**
  * Copyright (C) 2019 ${author} <speckij@posteo.net>
- *
+ * <p>
  * This software may be modified and distributed under the terms
  * of the MIT license. See the LICENSE file for details.
  */
@@ -8,15 +8,11 @@ package org.intueri.detector;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.processor.Processor;
 import org.apache.kafka.streams.processor.ProcessorContext;
 import org.apache.kafka.streams.processor.ProcessorSupplier;
-import org.apache.kafka.streams.state.KeyValueStore;
-import org.apache.kafka.streams.state.StoreBuilder;
-import org.apache.kafka.streams.state.Stores;
 import org.intueri.detector.bootstrap.IntueriBootstrapper;
 import org.intueri.detector.rule.RuleFactory;
 import org.intueri.exception.IntueriException;
@@ -64,6 +60,8 @@ public class IntueriDetectorMessageHandler {
     @Autowired
     private IntueriBootstrapper bootstrapper;
 
+    private JSONObject configuration;
+    private JSONArray rules;
     private String configurationUUID;
     private JSONArray enabledRuleIds;
 
@@ -73,24 +71,20 @@ public class IntueriDetectorMessageHandler {
 
     @EventListener(ContextRefreshedEvent.class)
     public void init() {
-        kafkaTopicName = "intueri-" + config.getId().toString();
-        String storeName = kafkaTopicName + "-store";
-
-        final StoreBuilder<KeyValueStore<String, String>> storeBuilder = Stores.keyValueStoreBuilder(
-                Stores.persistentKeyValueStore(storeName),
-                Serdes.String(),
-                Serdes.String());
-        builder.addStateStore(storeBuilder);
+        kafkaTopicName = "intueri-detector-" + config.getId().toString();
 
         builder.stream(kafkaTopicName)
-                .process(new IntueriProcessorSupplier(storeName), storeName);
+                .process(new IntueriProcessorSupplier());
 
         Properties properties = IntueriUtil.kafkaProperties(config.getId().toString(), config.getBootstrapServer());
         kafkaOutput = new KafkaProducer<>(properties);
 
         KafkaStreams streams = new KafkaStreams(builder.build(), properties);
         streams.start();
-        Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            updateStatus(DetectorStatus.OFFLINE);
+            streams.close();
+        }));
     }
 
     /**
@@ -155,7 +149,7 @@ public class IntueriDetectorMessageHandler {
     /**
      * Publishes the current application status. Automatically runs in a fixed time interval
      */
-    @Scheduled(fixedRate = 1000 * 60, initialDelay = 1000 * 60)
+    @Scheduled(fixedRate = 1000 * 60, initialDelay = 1000 * 10)
     public void publishStatus() {
         publish(this.applicationDetectorStatus.toString(), MessageType.STATUS);
     }
@@ -180,55 +174,40 @@ public class IntueriDetectorMessageHandler {
 
     class IntueriProcessorSupplier<K, V> implements ProcessorSupplier<String, String> {
 
-        private String storeName;
-
-        IntueriProcessorSupplier(String storeName) {
-            this.storeName = storeName;
+        IntueriProcessorSupplier() {
         }
 
         @Override
         public Processor<String, String> get() {
-            return new IntueriProcessor(storeName);
+            return new DetectorProcessor();
         }
     }
 
-    class IntueriProcessor implements Processor<String, String> {
+    class DetectorProcessor implements Processor<String, String> {
 
-        private String storeName;
-        private String topic;
-        private KeyValueStore<String, String> store;
-        private ProcessorContext context;
-
-        IntueriProcessor(String storeName) {
-            this.storeName = storeName;
+        DetectorProcessor() {
         }
 
         @Override
         public void init(ProcessorContext context) {
-            this.store = (KeyValueStore) context.getStateStore(storeName);
-            this.context = context;
         }
-
 
         @Override
         public void process(String key, String value) {
-            this.topic = context.topic();
             try {
                 switch (MessageType.valueOf(key)) {
                     case RULES:
                         logger.info("Received new Rules.");
-                        if (applicationDetectorStatus == DetectorStatus.NOT_INITIALIZED) {
-                            logger.trace("Updating Rules in local StateStore");
-                            store.put(ruleStoreKey, value);
-                        } else if (applicationDetectorStatus == DetectorStatus.PAUSED) {
+                        if (applicationDetectorStatus == DetectorStatus.NOT_INITIALIZED
+                                || applicationDetectorStatus == DetectorStatus.PAUSED) {
                             logger.trace("Updating Rules in local StateStore." +
                                     "Resetting Application to NOT_INITIALIZED");
-                            JSONArray rules = new JSONArray(value);
-                            enabledRuleIds = new JSONArray(rules);
+                            JSONArray jsonRules = new JSONArray(value);
+                            rules = jsonRules;
+                            enabledRuleIds = new JSONArray();
                             for (int i = 0; i < rules.length(); i++) {
-                                enabledRuleIds.put(rules.getJSONObject(i).getString(idString));
+                                enabledRuleIds.put(jsonRules.getJSONObject(i).getString(idString));
                             }
-                            store.put(ruleStoreKey, value);
                             updateStatus(DetectorStatus.NOT_INITIALIZED);
                         } else {
                             logger.error("Received Rule Message while in invalid status: {}",
@@ -244,10 +223,10 @@ public class IntueriDetectorMessageHandler {
                                     "Setting status to UPDATING_SCHEMA");
                             JSONObject conf = new JSONObject(value);
                             configurationUUID = conf.getString(idString);
-                            store.put(configurationStoreKey, value);
+                            configuration = conf;
                             try {
                                 updateStatus(DetectorStatus.UPDATING_SCHEMA);
-                                bootstrapper.bootstrap(store.get(configurationStoreKey));
+                                bootstrapper.bootstrap(conf);
                                 updateStatus(DetectorStatus.NOT_INITIALIZED);
                             } catch (IntueriException e) {
                                 logger.error("Could not bootstrap: {}", e.getMessage());
@@ -264,7 +243,6 @@ public class IntueriDetectorMessageHandler {
                                 case START:
                                     if (applicationDetectorStatus == DetectorStatus.PAUSED) {
                                         try {
-                                            final String configuration = store.get(configurationStoreKey);
                                             if (configuration == null) {
                                                 throw new IntueriException("No config found.");
                                             }
@@ -294,7 +272,10 @@ public class IntueriDetectorMessageHandler {
                                 case INIT:
                                     if (applicationDetectorStatus == DetectorStatus.NOT_INITIALIZED) {
                                         try {
-                                            ruleFactory.createRules(store.get(ruleStoreKey));
+                                            if (rules == null) {
+                                                throw new IntueriException("No rules found!");
+                                            }
+                                            ruleFactory.createRules(rules);
                                             updateStatus(DetectorStatus.PAUSED);
                                         } catch (Exception e) {
                                             logger.error("Error while bootstrapping: {}", e.getMessage());

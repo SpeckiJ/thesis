@@ -46,20 +46,26 @@ public class RulesApiController implements RulesApi {
     @Override
     public ResponseEntity<String> getRules() {
         JSONArray out = new JSONArray();
-        KeyValueIterator<String, String> iterator = messageHandler.getStore().range("rule-", "rule1");
+        KeyValueIterator<String, String> iterator = messageHandler.getStore().range("rule", "rule1");
         return ApiUtils.geEntitiesFromKVStore(out, iterator);
     }
 
     @Override
-    public ResponseEntity<Void> rulesPut(@Valid @RequestBody String body, @PathVariable("id") String id) {
+    public ResponseEntity<String> rulesPut(@Valid @RequestBody String body, @PathVariable("id") String id) {
         try {
             if (ruleValidator.validate(body)) {
-                messageHandler.publish(
-                        topic,
-                        MessageType.RULES,
-                        body
-                );
-                return new ResponseEntity<>(HttpStatus.OK);
+                String existing = messageHandler.getStore().get("rule-" + id);
+                if (existing != null && !existing.equals(body)) {
+                    messageHandler.publish(
+                            topic,
+                            MessageType.RULES,
+                            body
+                    );
+                    return ResponseEntity.ok(body);
+                } else {
+                    log.error("Could not update detector. No detector with id {} found.", id);
+                    return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+                }
             } else {
                 log.error("Could not parse rule. rule has invalid format.");
                 return new ResponseEntity<>(HttpStatus.BAD_REQUEST);

@@ -47,13 +47,19 @@ public class ConfigurationsApiController implements ConfigurationsApi {
     }
 
     @Override
-    public ResponseEntity<Void> configurationsIdPut(@Valid @RequestBody String body, @PathVariable("id") String id) {
+    public ResponseEntity<String> configurationsIdPut(@Valid @RequestBody String body, @PathVariable("id") String id) {
         try {
             if (configValidator.validate(body)) {
-                messageHandler.publish(ApiUtils.storageTopic,
-                        MessageType.CONFIG,
-                        body);
-                return new ResponseEntity<>(HttpStatus.OK);
+                String existing = messageHandler.getStore().get("config-" + id);
+                if (existing != null && !existing.equals(body)) {
+                    messageHandler.publish(ApiUtils.storageTopic,
+                            MessageType.CONFIG,
+                            body);
+                    return ResponseEntity.ok(body);
+                } else {
+                    log.error("Could not update detector. No detector with id {} found.", id);
+                    return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+                }
             } else {
                 log.error("Could not parse config. Config has invalid format.");
                 return new ResponseEntity<>(HttpStatus.BAD_REQUEST);

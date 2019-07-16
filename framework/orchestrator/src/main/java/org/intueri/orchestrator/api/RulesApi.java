@@ -25,7 +25,7 @@ public interface RulesApi {
             produces = {"application/json"},
             consumes = {"application/json"},
             method = RequestMethod.PUT)
-    ResponseEntity<Void> rulesPut(@Valid @RequestBody String body, @PathVariable("id") String id);
+    ResponseEntity<String> rulesPut(@Valid @RequestBody String body, @PathVariable("id") String id);
 
     @RequestMapping(value = "/rules",
             produces = {"application/json"},

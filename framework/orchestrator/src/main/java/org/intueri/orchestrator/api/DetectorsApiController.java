@@ -32,7 +32,7 @@ public class DetectorsApiController implements DetectorsApi {
 
     private static final Logger logger = LoggerFactory.getLogger(DetectorsApiController.class);
 
-    private final String topicPrefix = "intueri-";
+    private final String topicPrefix = "intueri-detector-";
 
     private IntueriOrchestratorMessageHandler messageHandler;
 
@@ -53,74 +53,84 @@ public class DetectorsApiController implements DetectorsApi {
                     JSONObject newProperty = new JSONObject(body);
                     final String configString = "config";
                     final String enabledRulesString = "enabledRules";
+                    final String commandString = "command";
                     final String availableRulesString = "availableRules";
                     final String statusString = "status";
 
-                    // Check whether config or enabledRules was submitted
-                    if (!newProperty.optString(configString).equals("")) {
-                        // Check if config has changed and configUpdate can be applied and trigger it
-                        if (!oldDetector.optString(configString).equals(newProperty.getString(configString))
-                                && (oldDetector.getString(statusString).equals(DetectorStatus.WAITING_FOR_CONFIG.toString())
-                                || oldDetector.getString(statusString).equals(DetectorStatus.PAUSED.toString()))) {
-                            // Check if config exists
-                            String rawConfig = messageHandler.getStore().get(configString
-                                    + "-"
-                                    + newProperty.getString(configString));
-                            if (rawConfig != null) {
+                    switch (newProperty.keys().next()) {
+                        case configString:
+                            // Check if config has changed and configUpdate can be applied and trigger it
+                            if (!oldDetector.optString(configString).equals(newProperty.getString(configString))
+                                    && (oldDetector.getString(statusString).equals(DetectorStatus.WAITING_FOR_CONFIG.toString())
+                                    || oldDetector.getString(statusString).equals(DetectorStatus.PAUSED.toString()))) {
+                                // Check if config exists
+                                String rawConfig = messageHandler.getStore().get(configString
+                                        + "-"
+                                        + newProperty.getString(configString));
+                                if (rawConfig != null) {
+                                    messageHandler.publish(
+                                            topicPrefix + id,
+                                            MessageType.CONFIG,
+                                            rawConfig
+                                    );
+                                    return new ResponseEntity<>(HttpStatus.OK);
+                                } else {
+                                    logger.error("Received config update for detector: {} but could not find config: {}",
+                                            topicPrefix + id,
+                                            newProperty.getString(configString));
+                                    return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+
+                                }
+                            } else {
+                                logger.error("Received config update for detector: {} while detector is in invalid state: {}",
+                                        topicPrefix + id,
+                                        oldDetector.getString(statusString));
+                                return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+                            }
+                        case enabledRulesString:
+                            // Check if rules have changed and RuleUpdate can be applied and trigger it
+                            if (oldDetector.getString(statusString).equals(DetectorStatus.NOT_INITIALIZED.toString())
+                                    || oldDetector.getString(statusString).equals(DetectorStatus.PAUSED.toString())) {
+                                // Check if rules have changed and ruleUpdate can be applied
+                                JSONArray newEnabledRuleIds = newProperty.getJSONArray(enabledRulesString);
+                                JSONArray newEnabledRules = new JSONArray();
+                                JSONArray oldAvailableRuleIds = oldDetector.optJSONArray(availableRulesString);
+                                if (oldAvailableRuleIds == null) {
+                                    logger.warn("No available rules found. Not triggering rule update.");
+                                    return new ResponseEntity<>(HttpStatus.OK);
+                                }
+                                List<Object> availableRules = oldDetector.optJSONArray(availableRulesString).toList();
+                                for (int i = 0; i < newEnabledRuleIds.length(); i++) {
+                                    String enabledRuleId = newEnabledRuleIds.getString(i);
+                                    if (availableRules.contains(enabledRuleId)) {
+                                        newEnabledRules.put(new JSONObject(messageHandler.getStore().get("rule-" + enabledRuleId)));
+                                    } else {
+                                        logger.error("Received rule update for detector: {} but rule {} is " +
+                                                "not available for this detector", topicPrefix + id, enabledRuleId);
+                                        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+                                    }
+                                }
                                 messageHandler.publish(
                                         topicPrefix + id,
-                                        MessageType.CONFIG,
-                                        rawConfig
+                                        MessageType.RULES,
+                                        newEnabledRules.toString()
                                 );
                                 return new ResponseEntity<>(HttpStatus.OK);
                             } else {
-                                logger.error("Received config update for detector: {} but could not find config: {}",
+                                logger.error("Received rule update for detector: {} while detector is in invalid state: {}",
                                         topicPrefix + id,
-                                        newProperty.getString(configString));
+                                        oldDetector.getString(statusString));
                                 return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-
                             }
-                        } else {
-                            logger.error("Received config update for detector: {} while detector is in invalid state: {}",
-                                    topicPrefix + id,
-                                    oldDetector.getString(statusString));
-                            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-                        }
-                    } else {
-                        // Check if rules have changed and RuleUpdate can be applied and trigger it
-                        if (oldDetector.getString(statusString).equals(DetectorStatus.NOT_INITIALIZED.toString())
-                                || oldDetector.getString(statusString).equals(DetectorStatus.PAUSED.toString())) {
-                            // Check if rules have changed and ruleUpdate can be applied
-                            JSONArray newEnabledRuleIds = newProperty.getJSONArray(enabledRulesString);
-                            JSONArray newEnabledRules = new JSONArray();
-                            JSONArray oldAvailableRuleIds = oldDetector.optJSONArray(availableRulesString);
-                            if (oldAvailableRuleIds == null) {
-                                logger.warn("No available rules found. Not triggering rule update.");
-                                return new ResponseEntity<>(HttpStatus.OK);
-                            }
-                            List<Object> availableRules = oldDetector.optJSONArray(availableRulesString).toList();
-                            for (int i = 0; i < newEnabledRuleIds.length(); i++) {
-                                String enabledRuleId = newEnabledRuleIds.getString(i);
-                                if (availableRules.contains(enabledRuleId)) {
-                                    newEnabledRules.put(messageHandler.getStore().get("rule-" + enabledRuleId));
-                                } else {
-                                    logger.error("Received rule update for detector: {} but rule {} is " +
-                                            "not available for this detector", topicPrefix + id, enabledRuleId);
-                                    return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-                                }
-                            }
+                        case commandString:
                             messageHandler.publish(
                                     topicPrefix + id,
-                                    MessageType.RULES,
-                                    newEnabledRules.toString()
+                                    MessageType.COMMAND,
+                                    newProperty.getString(commandString)
                             );
                             return new ResponseEntity<>(HttpStatus.OK);
-                        } else {
-                            logger.error("Received rule update for detector: {} while detector is in invalid state: {}",
-                                    topicPrefix + id,
-                                    oldDetector.getString(statusString));
+                        default:
                             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-                        }
                     }
                 } else {
                     logger.error("Received config/enabledRule update for unknown detector: {}", topicPrefix + id);
@@ -141,4 +151,6 @@ public class DetectorsApiController implements DetectorsApi {
         KeyValueIterator<String, String> iterator = messageHandler.getStore().range(topicPrefix, topicPrefix + "{");
         return ApiUtils.geEntitiesFromKVStore(out, iterator);
     }
+
+
 }

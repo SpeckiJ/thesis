@@ -26,16 +26,13 @@ public class IntueriDatabaseConnector {
     private EmbeddedEngine engine;
 
     @Autowired
-    private IntueriDetectorMessageHandler messageHandler;
-
-    @Autowired
     private RuleFactory ruleFactory;
 
     /**
      * Starts the Intueri detector
      */
-    public void startDetector(String config) {
-        Configuration configuration = generateConfig(new JSONObject(config));
+    public void startDetector(JSONObject config) {
+        Configuration configuration = generateConfig(config);
         createConnector(configuration);
         createExecutor(configuration).execute(engine);
     }

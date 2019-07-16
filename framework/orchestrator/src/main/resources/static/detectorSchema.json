@@ -36,6 +36,22 @@
           }
         }
       }
+    },
+    {
+      "required": [
+        "command"
+      ],
+      "properties": {
+        "command": {
+          "type": "string",
+          "enum": [
+            "INIT",
+            "START",
+            "STOP"
+          ]
+        }
+      }
     }
+
   ]
 }
