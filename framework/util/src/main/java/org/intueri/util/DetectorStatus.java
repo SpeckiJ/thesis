@@ -38,5 +38,9 @@ public enum DetectorStatus {
     /**
      * Encountered an unrecoverable error.
      */
-    ERROR
+    ERROR,
+    /**
+     * Detector is not started
+     */
+    OFFLINE
 }

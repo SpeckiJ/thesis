@@ -42,12 +42,11 @@ public class IntueriBootstrapper {
     /**
      * Bootstraps the Intueri detector application. Generates schemata and uploads them to Intueri orchestrators.
      */
-    public void bootstrap(String detectorConfig) throws IntueriException {
+    public void bootstrap(JSONObject detectorConfig) throws IntueriException {
         logger.info("Starting Bootstrapping");
         Set<IntueriDatabaseTable> databaseTables = new HashSet<>();
         try (PostgresConnection connection = new PostgresConnection(
-                databaseConnector.generateConfig(new JSONObject(detectorConfig))
-                                                               .subset("database.", true))) {
+                databaseConnector.generateConfig(detectorConfig).subset("database.", true))) {
             messageHandler.updateStatus(DetectorStatus.UPDATING_SCHEMA);
             DatabaseMetaData metaData = connection.connection().getMetaData();
             ResultSet tables = metaData.getTables(null, null, null, new String[]{"TABLE"});

@@ -25,7 +25,7 @@ public interface ConfigurationsApi {
             produces = {"application/json"},
             consumes = {"application/json"},
             method = RequestMethod.PUT)
-    ResponseEntity<Void> configurationsIdPut(@Valid @RequestBody String body, @PathVariable("id") String id);
+    ResponseEntity<String> configurationsIdPut(@Valid @RequestBody String body, @PathVariable("id") String id);
 
     @RequestMapping(value = "/configurations",
             produces = {"application/json"},

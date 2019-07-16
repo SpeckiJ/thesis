@@ -30,11 +30,10 @@ public class RuleFactory {
 
     private Rule[] rules;
 
-    public void createRules(String raw) {
+    public void createRules(JSONArray rootNode) {
         Set<Rule> ruleSet = new HashSet<>();
-        JSONArray rootNode = new JSONArray(raw);
         for (int i = 0; i < rootNode.length(); i++) {
-            ruleSet.add(createRule(new JSONObject(rootNode.getString(i))));
+            ruleSet.add(createRule(rootNode.getJSONObject(i)));
         }
         this.rules = ruleSet.toArray(new Rule[]{});
     }
