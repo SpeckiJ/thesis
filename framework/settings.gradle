@@ -1,0 +1,8 @@
+rootProject.name = 'framework'
+include 'orchestrator'
+include 'detector'
+include 'util'
+include 'output'
+
+// project(':orchestrator').name = "intueri-orchestrator"
+

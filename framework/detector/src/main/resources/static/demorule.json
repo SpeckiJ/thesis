@@ -1,0 +1,15 @@
+{
+  "id": "DemoRule",
+  "version": 1,
+  "relation": "spatial_ref_sys",
+  "outputs": [
+    {
+      "type": "KafkaOutput",
+      "options": {
+        "topic": "outputtopic"
+      }
+    }
+  ],
+  "filters": [
+  ]
+}

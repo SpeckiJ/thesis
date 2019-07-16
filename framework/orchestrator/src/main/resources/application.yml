@@ -1,0 +1,16 @@
+
+spring:
+  application:
+    name: intueri-orchestrator
+
+server:
+  port: 8010
+
+intueri:
+  applicationId: "c3a63bb5-188d-469e-81fc-1951c4210fd3"
+  bootstrapServer: "kafka:9092"
+
+logging:
+  level:
+    org.intueri: trace
+    org.apache: none

@@ -1,0 +1,77 @@
+buildscript {
+	dependencies {
+		classpath('gradle.plugin.com.palantir.gradle.docker:gradle-docker:0.13.0')
+	}
+}
+
+// Add plugins
+plugins {
+	id 'org.springframework.boot' version '2.1.4.RELEASE'
+	id 'java'
+	id 'application'
+	id 'org.siouan.frontend' version '1.2.1'
+	id "com.dorongold.task-tree" version "1.4"
+}
+apply plugin: 'io.spring.dependency-management'
+// apply plugin: 'com.palantir.docker'
+
+group 'org.intueri'
+version '1.0-SNAPSHOT'
+sourceCompatibility = '11'
+//javaModule.name = 'org.intueri.orchestrator'
+//name = 'intueri-orchestrator'
+mainClassName = 'org.intueri.orchestrator.OrchestratorApplication'
+
+repositories {
+	mavenCentral()
+	maven { url 'https://jitpack.io' }
+}
+
+ext {
+	set('springCloudVersion', 'Greenwich.SR1')
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'javax.servlet:javax.servlet-api:4.0.1'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'com.github.everit-org.json-schema:org.everit.json.schema:1.11.1'
+	implementation 'org.json:json:20180813'
+
+	implementation 'org.springframework.kafka:spring-kafka'
+	implementation 'org.apache.kafka:kafka-streams'
+	implementation 'org.hibernate:hibernate-validator'
+	
+	compile project(':util')
+}
+
+// Import dependency Management
+dependencyManagement {
+	imports {
+		mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+	}
+}
+
+// Setup Frontend
+//frontend {
+//	nodeVersion = '10.16.0'
+//	nodeDistributionUrl = 'https://nodejs.org/dist/v10.16.0/node-v10.16.0-linux-x64.tar.xz'
+//	nodeInstallDirectory = '/node'
+//	cleanScript = 'run clean'
+//	yarnEnabled = false
+//	yarnVersion ='1.3.2'
+//	assembleScript = 'run assemble'
+//	checkScript = 'run check'
+//}
+//tasks.register('processFrontendResources', Copy) {
+//	description 'Processing frontend resources'
+//	from "${project.rootDir}/frontend-src"
+//	into "${project.rootDir}/src/main/resources/public"
+//	dependsOn tasks.named('assembleFrontend')
+//	dependsOn tasks.named('installFrontend')
+//}
+//tasks.named('processResources').configure {
+//	dependsOn tasks.named('processFrontendResources')
+//}
+
+

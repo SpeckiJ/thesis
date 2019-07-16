@@ -1,0 +1,120 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Intueri Schema",
+  "description": "Schema for Intueri Rules",
+  "type": "object",
+  "required": [
+    "id",
+    "version",
+    "relation",
+    "outputs",
+    "filters"
+  ],
+  "oneOf": [],
+  "definitions": {
+    "ruleBase": {
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "relation",
+        "outputs",
+        "filters"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "title": "id"
+        },
+        "version": {
+          "const": 1
+        },
+        "relation": {
+          "type": "string"
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/kafkaOutput"
+          }
+        },
+        "filters": {
+          "type": "array"
+        }
+      }
+    },
+    "comparisonOperatorBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "column",
+        "options"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "COMPARISON"
+          ]
+        },
+        "column": {
+          "type": "string"
+        },
+        "options": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "operator",
+            "value"
+          ],
+          "properties": {
+            "operator": {
+              "type": "string",
+              "enum": [
+                "EQ",
+                "NE",
+                "GT",
+                "GE",
+                "LT",
+                "LE"
+              ]
+            },
+            "value": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    "kafkaOutput": {
+      "type": "object",
+      "title": "output",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "options"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "KafkaOutput"
+          ]
+        },
+        "options": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "topic"
+          ],
+          "properties": {
+            "topic": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+  "offset.storage": "org.apache.kafka.connect.storage.FileOffsetBackingStore",
+  "offset.storage.file.filename": "offset.dat",
+  "offset.flush.interval.ms": 60000,
+  "name": "postgres-connector",
+  "database.hostname": "127.0.0.1",
+  "database.port": 5000,
+  "database.user": "postgres",
+  "database.password": "",
+  "database.dbname": "test",
+  "server.id": 85744,
+  "database.server.name": "test",
+  "database.history": "io.debezium.relational.history.FileDatabaseHistory",
+  "database.history.file.filename": "dbhistory.dat",
+  "table.blacklist": "public.spatial_ref_sys",
+  "engine.threads.corePoolSize": 4,
+  "engine.threads.maxPoolSize": 4
+}

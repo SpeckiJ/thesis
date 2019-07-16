@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: demo-intueri-detector
+    id: 9a853db5-016c-4ecc-82d0-56c768624ed6
+  cloud:
+    stream:
+      kafka:
+        binder:
+          brokers: kafka
+      bindings:
+        input:
+          destination: intueri-management
+        managementInput:
+          destination: intueri-management
+        managementOutput:
+          destination: intueri-management
+        resultOutput:
+          destination: intueri-out
+      default-binder: kafka
+
+
+intueri:
+  name: demo-intueri-detector
+  id: 9a853db5-016c-4ecc-82d0-56c768624ed6
+  kafka:
+    bootstrap-servers: "kafka:9092"
+
+logging:
+  level:
+    org:
+      intueri: TRACE

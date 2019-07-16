@@ -1,0 +1,41 @@
+plugins {
+    id 'java'
+    id 'org.jetbrains.intellij' version '0.4.8'
+    id 'com.github.hierynomus.license' version '0.15.0'
+    id "com.github.hierynomus.license-report" version"0.15.0"
+}
+
+group 'org.intueri'
+version '1.0-SNAPSHOT'
+
+sourceCompatibility = 1.8
+
+allprojects {
+    apply plugin: "license"
+
+    license {
+        header = rootProject.file('misc/license-header-mit.txt')
+        ext.year = '2019'
+        ext.author = 'Jan Speckamp'
+        ext.email = 'speckij@posteo.net'
+        includes(["**/*.java", "**/*.properties", "**/*.groovy", "**/*.gradle"])
+        skipExistingHeaders = true
+        ignoreFailures = false
+    }
+}
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+}
+
+intellij {
+    version '2018.3.5'
+}
+patchPluginXml {
+    changeNotes """
+      Add change notes here.<br>
+      <em>most HTML tags may be used</em>"""
+}

@@ -1,0 +1,41 @@
+{
+  "definitions": {},
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://specki.xyz/intueri/detectorSchema.json",
+  "type": "object",
+  "title": "Schema describing the changeable value in a json representation of an intueri-detector",
+  "oneOf": [
+    {
+      "required": [
+        "config"
+      ],
+      "properties": {
+        "config": {
+          "type": "string",
+          "title": "The unique Id of the config of this detector",
+          "example": "9c90817d-a107-4a78-ab71-1057301e2fb9",
+          "pattern": "^(([0-9a-fA-F]){8}-([0-9a-fA-F]){4}-([0-9a-fA-F]){4}-([0-9a-fA-F]){4}-([0-9a-fA-F]){12})$"
+        }
+      }
+    },
+    {
+      "required": [
+        "enabledRules"
+      ],
+      "properties": {
+        "enabledRules": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "title": "The unique Ids of all rules currently applied by this detector",
+            "pattern": "^(([0-9a-fA-F]){8}-([0-9a-fA-F]){4}-([0-9a-fA-F]){4}-([0-9a-fA-F]){4}-([0-9a-fA-F]){12})$",
+            "example": [
+              "0b7916d7-99e6-47d7-aaa6-b4387daa8781",
+              "e59e7e8e-9e71-499b-b88f-92bb3b8c8c0f"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
