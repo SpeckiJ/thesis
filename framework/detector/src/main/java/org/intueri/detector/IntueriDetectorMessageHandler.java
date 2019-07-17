@@ -8,8 +8,10 @@ package org.intueri.detector;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
+import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.processor.Processor;
 import org.apache.kafka.streams.processor.ProcessorContext;
 import org.apache.kafka.streams.processor.ProcessorSupplier;
@@ -76,7 +78,7 @@ public class IntueriDetectorMessageHandler {
         builder.stream(kafkaTopicName)
                 .process(new IntueriProcessorSupplier());
 
-        Properties properties = IntueriUtil.kafkaProperties(config.getId().toString(), config.getBootstrapServer());
+        Properties properties = kafkaProperties(config.getId().toString(), config.getBootstrapServer());
         kafkaOutput = new KafkaProducer<>(properties);
 
         KafkaStreams streams = new KafkaStreams(builder.build(), properties);
@@ -85,6 +87,18 @@ public class IntueriDetectorMessageHandler {
             updateStatus(DetectorStatus.OFFLINE);
             streams.close();
         }));
+    }
+
+    public static Properties kafkaProperties(String id, String server) {
+        Properties properties = new Properties();
+        properties.put(StreamsConfig.APPLICATION_ID_CONFIG, id);
+        properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, server);
+        properties.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+        properties.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+        final String serializer = "org.apache.kafka.common.serialization.StringSerializer";
+        properties.put("key.serializer", serializer);
+        properties.put("value.serializer", serializer);
+        return properties;
     }
 
     /**
