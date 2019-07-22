@@ -1,22 +1,11 @@
-buildscript {
-	dependencies {
-		classpath('gradle.plugin.com.palantir.gradle.docker:gradle-docker:0.13.0')
-	}
-}
-
-// Add plugins
 plugins {
 	id 'org.springframework.boot' version '2.1.4.RELEASE'
 	id 'java'
 	id 'application'
 	id 'org.siouan.frontend' version '1.2.1'
 	id "com.dorongold.task-tree" version "1.4"
-	id 'org.ec4j.editorconfig' version '0.0.3'
 }
 apply plugin: 'io.spring.dependency-management'
-// apply plugin: 'com.palantir.docker'
-
-check.dependsOn editorconfigCheck
 
 group 'org.intueri'
 version '1.0-SNAPSHOT'
@@ -41,8 +30,8 @@ dependencies {
 
 	implementation 'org.springframework.kafka:spring-kafka'
 	implementation 'org.apache.kafka:kafka-streams'
-	implementation 'org.hibernate:hibernate-validator'
-	
+	implementation 'org.hibernate:hibernate-validator:6.0.17.Final'
+
 	compile project(':util')
 }
 
