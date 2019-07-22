@@ -12,6 +12,7 @@ import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsBuilder;
+import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.errors.InvalidStateStoreException;
 import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.processor.Processor;
@@ -63,10 +64,9 @@ public class IntueriOrchestratorMessageHandler {
     private ReadOnlyKeyValueStore<String, String> store;
     private String globalStorage;
 
-    private ApplicationConfig config;
+    private OrchestratorConfig config;
 
-
-    IntueriOrchestratorMessageHandler(ApplicationConfig config) {
+    IntueriOrchestratorMessageHandler(OrchestratorConfig config) {
         this.config = config;
     }
 
@@ -87,13 +87,12 @@ public class IntueriOrchestratorMessageHandler {
         builder.stream(Pattern.compile("intueri-detector-.*"))
                 .process(new ManagementProcessorSupplier());
 
-        Properties properties = IntueriUtil.kafkaProperties(
+        Properties properties = kafkaProperties(
                 config.getApplicationId(),
                 config.getBootstrapServer()
         );
         kafkaOutput = new KafkaProducer<>(properties);
         KafkaStreams streams = new KafkaStreams(builder.build(), properties);
-//        streams.cleanUp();
 
         streams.setStateListener((newState, oldState) -> {
             if (oldState == KafkaStreams.State.REBALANCING && newState == KafkaStreams.State.RUNNING) {
@@ -114,6 +113,18 @@ public class IntueriOrchestratorMessageHandler {
         });
         streams.start();
         Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
+    }
+
+    public static Properties kafkaProperties(String id, String server) {
+        Properties properties = new Properties();
+        properties.put(StreamsConfig.APPLICATION_ID_CONFIG, id);
+        properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, server);
+        properties.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+        properties.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+        final String serializer = "org.apache.kafka.common.serialization.StringSerializer";
+        properties.put("key.serializer", serializer);
+        properties.put("value.serializer", serializer);
+        return properties;
     }
 
     public void publish(String topic, MessageType key, String message) {
