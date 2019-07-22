@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2019 ${author} <speckij@posteo.net>
+ * Copyright (C) 2019 Jan Speckamp <speckij@posteo.net>
  * <p>
  * This software may be modified and distributed under the terms
  * of the MIT license. See the LICENSE file for details.
@@ -23,6 +23,8 @@ import org.intueri.orchestrator.validation.IntueriValidationAPI;
 import org.intueri.orchestrator.validation.SimpleValidator;
 import org.intueri.util.IntueriUtil;
 import org.intueri.util.MessageType;
+import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -227,7 +229,7 @@ public class IntueriOrchestratorMessageHandler {
                             logger.trace("Updating schema/availableRules for detector {} in storage.", detectorId);
                             JSONObject detector = new JSONObject(storedDetector);
                             detector.put(schemaString, schema.getString(id));
-                            detector.put(availableRulesString, availableRules);
+                            detector.putOpt(availableRulesString, availableRules);
                             detector.put(lastContactString, System.currentTimeMillis());
                             store.put(topic, detector.toString());
                         } else {
@@ -244,7 +246,13 @@ public class IntueriOrchestratorMessageHandler {
                             JSONObject oldStatus = new JSONObject(stored);
                             JSONObject newStatus = new JSONObject(value);
                             newStatus.put(lastContactString, System.currentTimeMillis());
-                            newStatus.put(availableRulesString, oldStatus.getJSONArray(availableRulesString));
+                            JSONArray ruleArray;
+                            try {
+                               ruleArray =  oldStatus.getJSONArray(availableRulesString);
+                            } catch (JSONException e) {
+                                ruleArray = new JSONArray();
+                            }
+                            newStatus.put(availableRulesString, ruleArray);
                             store.put(topic, newStatus.toString());
                         } else {
                             // Create new detector if it does not exist
