@@ -20,7 +20,6 @@ import org.intueri.detector.rule.RuleFactory;
 import org.intueri.exception.IntueriException;
 import org.intueri.util.CommandType;
 import org.intueri.util.DetectorStatus;
-import org.intueri.util.IntueriUtil;
 import org.intueri.util.MessageType;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -43,14 +42,11 @@ public class IntueriDetectorMessageHandler {
 
     private final StreamsBuilder builder = new StreamsBuilder();
 
-    //    private Headers idHeader;
-    private ApplicationConfig config;
+    private DetectorConfig config;
     private DetectorStatus applicationDetectorStatus = DetectorStatus.WAITING_FOR_CONFIG;
     private KafkaProducer<String, String> kafkaOutput;
     private String kafkaTopicName;
 
-    private String configurationStoreKey = "CONFIG";
-    private String ruleStoreKey = "RULES";
     private String idString = "id";
 
     @Autowired
@@ -67,7 +63,7 @@ public class IntueriDetectorMessageHandler {
     private String configurationUUID;
     private JSONArray enabledRuleIds;
 
-    public IntueriDetectorMessageHandler(ApplicationConfig config) {
+    public IntueriDetectorMessageHandler(DetectorConfig config) {
         this.config = config;
     }
 
@@ -76,7 +72,7 @@ public class IntueriDetectorMessageHandler {
         kafkaTopicName = "intueri-detector-" + config.getId().toString();
 
         builder.stream(kafkaTopicName)
-                .process(new IntueriProcessorSupplier());
+                .process(new DetectorProcessorSupplier());
 
         Properties properties = kafkaProperties(config.getId().toString(), config.getBootstrapServer());
         kafkaOutput = new KafkaProducer<>(properties);
@@ -186,9 +182,9 @@ public class IntueriDetectorMessageHandler {
         this.publish(schema.toString(), MessageType.SCHEMA);
     }
 
-    class IntueriProcessorSupplier<K, V> implements ProcessorSupplier<String, String> {
+    class DetectorProcessorSupplier<K, V> implements ProcessorSupplier<String, String> {
 
-        IntueriProcessorSupplier() {
+        DetectorProcessorSupplier() {
         }
 
         @Override

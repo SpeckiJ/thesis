@@ -15,7 +15,7 @@ import java.util.UUID;
 @Configuration
 @PropertySource("classpath:application.yml")
 @ConfigurationProperties(prefix = "intueri")
-public class ApplicationConfig {
+public class DetectorConfig {
 
     private UUID id;
 
