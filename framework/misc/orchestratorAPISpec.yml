@@ -306,6 +306,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorSchema'
+  /schemas:
+    get:
+      tags:
+      - "schemas"
+      summary: "Gets a list of all Schemas"
+      description: "Returns an Array of all Schemas"
+      operationId: "getSchemas"
+      responses:
+        200:
+          description: "successfully retrieved schemas"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                items:
+                  $ref: '#/components/schemas/Schema'
+        500:
+          description: "error while retrieving schema"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema' 
 #    post:
 #      tags:
 #      - "pet"
@@ -395,10 +417,7 @@ components:
       - id
       - name
       - status
-      - schema
-      - config
-      - enabledRules
-      - availableRules
+      - lastContact
       properties:
         id:
           type: string
@@ -420,6 +439,9 @@ components:
           - "PAUSED"
           - "RUNNING"
           - "ERROR"
+        lastContact:
+          type: number
+          example: 1234567
         schemaId:
           type: string
           title: The unique Id of the schema used in the datastore of this detector
