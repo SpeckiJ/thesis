@@ -2,12 +2,10 @@
 spring:
   application:
     name: intueri-output
-  cloud:
-    stream:
-      kafka:
-        binder:
-          brokers: kafka
-      bindings:
-        input:
-          destination: intueri-out
-      default-binder: kafka
+
+intueri:
+  applicationId: "aaaa9999-188d-469e-81fc-1951c4210fd3"
+  bootstrapServer: "kafka:9092"
+  outputs:
+    h2output:
+      datastorename: "intueri-out.h2"

@@ -17,7 +17,7 @@ import javax.annotation.PreDestroy;
 @Component
 public class H2Output implements OutputAdapter {
 
-    @Value("${outputs.h2output.datastorename:intueri-out.h2}")
+    @Value("${intueri.outputs.h2output.datastorename:intueri-out.h2}")
     private String datastoreName;
 
     private MVMap<String, String> datastore;
