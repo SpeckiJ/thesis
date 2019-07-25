@@ -10,5 +10,5 @@ import org.json.JSONObject;
 
 public interface OutputAdapter {
 
-    void handleMessage(JSONObject event, JSONObject config);
+    void handleMessage(String event, JSONObject config);
 }

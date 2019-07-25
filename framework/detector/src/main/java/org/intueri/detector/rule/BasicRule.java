@@ -19,7 +19,8 @@ public class BasicRule implements Rule {
     private IntueriDetectorMessageHandler messageHandler;
     private AbstractFilter[] filters;
     private String relation;
-    private String output;
+    private JSONArray output;
+    private String ruleId;
 
     public BasicRule(JSONObject raw, FilterFactory filterFactory, IntueriDetectorMessageHandler messageHandler) {
         JSONArray filters = raw.getJSONArray("filters");
@@ -29,15 +30,13 @@ public class BasicRule implements Rule {
         }
         this.relation = raw.getString("relation").toLowerCase();
         this.messageHandler = messageHandler;
-        this.output = raw.getJSONArray("outputs").toString();
+        this.output = raw.getJSONArray("outputs");
+        this.ruleId = raw.getString("id");
     }
 
     public void handleRecord(SourceRecord source) {
         if (checkRuleApplies(source) && checkFilters(source)) {
-            messageHandler.publishEvent(source.toString(), output);
-            //TODO: implement
-            // Actually send out notification
-            // output.handleMessage();
+            messageHandler.publishEvent(ruleId, source.toString(), output);
         }
     }
 

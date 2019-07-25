@@ -31,8 +31,8 @@ public class H2Output implements OutputAdapter {
     }
 
     @Override
-    public void handleMessage(JSONObject event, JSONObject config) {
-        datastore.put(event.getString("time"), event.toString());
+    public void handleMessage(String event, JSONObject config) {
+        // datastore.put(event.getString("time"), event.toString());
     }
 
     @PreDestroy

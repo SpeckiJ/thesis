@@ -21,7 +21,6 @@ import org.apache.kafka.streams.processor.ProcessorSupplier;
 import org.apache.kafka.streams.state.*;
 import org.intueri.orchestrator.validation.IntueriValidationAPI;
 import org.intueri.orchestrator.validation.SimpleValidator;
-import org.intueri.util.IntueriUtil;
 import org.intueri.util.MessageType;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -32,10 +31,7 @@ import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Controller;
 
-import java.util.HashSet;
-import java.util.Properties;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.regex.Pattern;
 
 @Controller
@@ -72,6 +68,18 @@ public class IntueriOrchestratorMessageHandler {
         this.config = config;
     }
 
+    public static Properties kafkaProperties(String id, String server) {
+        Properties properties = new Properties();
+        properties.put(StreamsConfig.APPLICATION_ID_CONFIG, id);
+        properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, server);
+        properties.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+        properties.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+        final String serializer = "org.apache.kafka.common.serialization.StringSerializer";
+        properties.put("key.serializer", serializer);
+        properties.put("value.serializer", serializer);
+        return properties;
+    }
+
     @EventListener(ContextRefreshedEvent.class)
     private void init() {
         globalStorage = "intueri-store";
@@ -81,6 +89,7 @@ public class IntueriOrchestratorMessageHandler {
                 Serdes.String(),
                 Serdes.String()
         );
+
         builder.addGlobalStore(storeBuilder,
                 "intueri-storage",
                 Consumed.with(Serdes.String(), Serdes.String()),
@@ -95,7 +104,7 @@ public class IntueriOrchestratorMessageHandler {
         );
         kafkaOutput = new KafkaProducer<>(properties);
         KafkaStreams streams = new KafkaStreams(builder.build(), properties);
-
+        streams.cleanUp();
         streams.setStateListener((newState, oldState) -> {
             if (oldState == KafkaStreams.State.REBALANCING && newState == KafkaStreams.State.RUNNING) {
                 while (true) {
@@ -115,18 +124,6 @@ public class IntueriOrchestratorMessageHandler {
         });
         streams.start();
         Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
-    }
-
-    public static Properties kafkaProperties(String id, String server) {
-        Properties properties = new Properties();
-        properties.put(StreamsConfig.APPLICATION_ID_CONFIG, id);
-        properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, server);
-        properties.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
-        properties.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
-        final String serializer = "org.apache.kafka.common.serialization.StringSerializer";
-        properties.put("key.serializer", serializer);
-        properties.put("value.serializer", serializer);
-        return properties;
     }
 
     public void publish(String topic, MessageType key, String message) {
@@ -246,20 +243,16 @@ public class IntueriOrchestratorMessageHandler {
                             JSONObject oldStatus = new JSONObject(stored);
                             JSONObject newStatus = new JSONObject(value);
                             newStatus.put(lastContactString, System.currentTimeMillis());
-                            JSONArray ruleArray;
-                            try {
-                               ruleArray =  oldStatus.getJSONArray(availableRulesString);
-                            } catch (JSONException e) {
-                                ruleArray = new JSONArray();
-                            }
-                            newStatus.put(availableRulesString, ruleArray);
+                            newStatus.put(availableRulesString, oldStatus.getJSONArray(availableRulesString));
+                            newStatus.put(schemaString, oldStatus.optString(schemaString));
                             store.put(topic, newStatus.toString());
                         } else {
                             // Create new detector if it does not exist
                             try {
                                 // Validate value is json
-                                new JSONObject(value);
-                                store.put(topic, value);
+                                JSONObject jsonObject = new JSONObject(value);
+                                jsonObject.put(availableRulesString, new JSONArray());
+                                store.put(topic, jsonObject.toString());
                             } catch (Exception e) {
                                 logger.error("Could not parse value to JSON: {}", e.getMessage());
                             }
@@ -309,7 +302,8 @@ public class IntueriOrchestratorMessageHandler {
                                     String rawSchema = store.get(schemaPrefix + detector.getString(schemaString));
                                     IntueriValidationAPI validation = new SimpleValidator(rawSchema);
                                     if (validation.validate(value)) {
-                                        logger.trace("Adding Rule to availableRules for detector: {}.", detector.get(id));
+                                        logger.trace("Adding Rule to availableRules for detector: {}.",
+                                                detector.get(id));
                                         detector.getJSONArray(availableRulesString)
                                                 .put(rule.getString(id));
                                         store.put(next.key, detector.toString());
@@ -328,6 +322,8 @@ public class IntueriOrchestratorMessageHandler {
                         logger.trace("Received new config for storage: {}", configKey);
                         if (store.get(configKey) == null) {
                             store.put(configKey, conf.toString());
+                        } else {
+                            logger.warn("Config with key: {} already present in storage", configKey);
                         }
                         break;
                     default:
