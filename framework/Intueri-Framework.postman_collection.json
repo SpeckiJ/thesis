@@ -1,0 +1,195 @@
+{
+	"variables": [],
+	"info": {
+		"name": "Intueri-Framework",
+		"_postman_id": "13c308a4-3eca-7d63-7cec-9a8122e2ceb9",
+		"description": "",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "GET detectors",
+			"request": {
+				"url": "localhost:8010/detectors",
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "GET schemas",
+			"request": {
+				"url": "localhost:8010/schemas",
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "GET rules",
+			"request": {
+				"url": "localhost:8010/rules",
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "GET configs",
+			"request": {
+				"url": "localhost:8010/configurations",
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "POST config",
+			"request": {
+				"url": "localhost:8010/configurations",
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"connector.class\": \"io.debezium.connector.postgresql.PostgresConnector\",\n    \"database.history.file.filename\": \"dbhistory.dat\",\n    \"database.user\": \"postgres\",\n    \"database.dbname\": \"test\",\n    \"offset.storage\": \"org.apache.kafka.connect.storage.FileOffsetBackingStore\",\n    \"database.server.name\": \"test\",\n    \"table.blacklist\": \"public.spatial_ref_sys\",\n    \"database.port\": 5000,\n    \"offset.flush.interval.ms\": 60000,\n    \"offset.storage.file.filename\": \"offset.dat\",\n    \"database.hostname\": \"172.18.0.4\",\n    \"database.password\": \"\",\n    \"name\": \"Basic config for a detector to test\",\n    \"id\": \"3a3d3ed9-8fe8-4e95-8f8a-34552a0dd272\",\n    \"server.id\": 85744,\n    \"database.history\": \"io.debezium.relational.history.FileDatabaseHistory\",\n    \"engine.threads.corePoolSize\": 4,\n    \"engine.threads.maxPoolSize\": 4\n}"
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "POST rule",
+			"request": {
+				"url": "localhost:8010/rules",
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"id\": \"0203b088-2dd0-4cac-801f-3c4103549bad\",\n  \"version\": 1,\n  \"relation\": \"test_table\",\n  \"outputs\": [{\n    \"type\": \"KafkaOutput\",\n    \"options\": {\n      \"topic\": \"outputtopic\"\n    }\n  }],\n  \"filters\": [\n  ]\n}"
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "PUT config to detector",
+			"request": {
+				"url": "localhost:8010/detectors/9a853db5-016c-4ecc-82d0-56c768624ed6",
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"config\": \"3a3d3ed9-8fe8-4e95-8f8a-34552a0dd270\"\n}"
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "PUT enabledRules to detector",
+			"request": {
+				"url": "localhost:8010/detectors/9a853db5-016c-4ecc-82d0-56c768624ed6",
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"enabledRules\": [\n  \t\"0203b088-2dd0-4cac-801f-3c4103549bad\"\n]\n}"
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "PUT command init to detector",
+			"request": {
+				"url": "localhost:8010/detectors/9a853db5-016c-4ecc-82d0-56c768624ed6",
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"command\": \"INIT\"\n}"
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "PUT command start to detector",
+			"request": {
+				"url": "localhost:8010/detectors/9a853db5-016c-4ecc-82d0-56c768624ed6",
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"command\": \"START\"\n}"
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "PUT command stop to detector",
+			"request": {
+				"url": "localhost:8010/detectors/9a853db5-016c-4ecc-82d0-56c768624ed6",
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"command\": \"STOP\"\n}"
+				},
+				"description": ""
+			},
+			"response": []
+		}
+	]
+}

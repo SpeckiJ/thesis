@@ -1,10 +1,12 @@
 version: '3'
 services:
   database:
+    build:
+      context: ./docker
+      dockerfile: demodatabase.Dockerfile
     ports:
      - "5000:5432"
-    image: "debezium/postgres:11-alpine"
-  
+
   intueri-detector:
     build:
       context: .
