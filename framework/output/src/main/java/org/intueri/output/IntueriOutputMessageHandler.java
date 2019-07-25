@@ -24,6 +24,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Controller;
 
 import java.util.Properties;
+import java.util.regex.Pattern;
 
 @Controller
 public class IntueriOutputMessageHandler {
@@ -55,7 +56,7 @@ public class IntueriOutputMessageHandler {
 
     @EventListener(ContextRefreshedEvent.class)
     public void init() {
-        builder.stream(topic)
+        builder.stream(Pattern.compile(topic))
                 .process(new OutputProcessorSupplier());
 
         Properties properties = kafkaProperties(config.getApplicationId(), config.getBootstrapServer());
@@ -101,7 +102,7 @@ public class IntueriOutputMessageHandler {
                         logger.error("received unparseable output type:" + outputConfig);
                         return;
                 }
-                out.handleMessage(message.getJSONObject("event"), outputConfig);
+                out.handleMessage(message.getString("event"), outputConfig);
             }
         }
 

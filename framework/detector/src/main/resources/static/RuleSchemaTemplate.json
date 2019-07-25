@@ -35,7 +35,7 @@
         "outputs": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/kafkaOutput"
+            "$ref": "#/definitions/consoleOutput"
           }
         },
         "filters": {
@@ -87,7 +87,7 @@
         }
       }
     },
-    "kafkaOutput": {
+    "consoleOutput": {
       "type": "object",
       "title": "output",
       "additionalProperties": false,
@@ -99,20 +99,11 @@
         "type": {
           "type": "string",
           "enum": [
-            "KafkaOutput"
+            "consoleOutput"
           ]
         },
         "options": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "topic"
-          ],
-          "properties": {
-            "topic": {
-              "type": "string"
-            }
-          }
+          "type": "object"
         }
       }
     }

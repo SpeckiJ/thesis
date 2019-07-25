@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 public class ConsoleOutput implements OutputAdapter {
 
     @Override
-    public void handleMessage(JSONObject event, JSONObject config) {
-        System.out.println(event.toString(2));
+    public void handleMessage(String event, JSONObject config) {
+        System.out.println(event);
     }
 }

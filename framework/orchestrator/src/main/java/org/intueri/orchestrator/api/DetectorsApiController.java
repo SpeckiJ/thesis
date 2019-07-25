@@ -60,9 +60,8 @@ public class DetectorsApiController implements DetectorsApi {
                     switch (newProperty.keys().next()) {
                         case configString:
                             // Check if config has changed and configUpdate can be applied and trigger it
-                            if (!oldDetector.optString(configString).equals(newProperty.getString(configString))
-                                    && (oldDetector.getString(statusString).equals(DetectorStatus.WAITING_FOR_CONFIG.toString())
-                                    || oldDetector.getString(statusString).equals(DetectorStatus.PAUSED.toString()))) {
+                            if (oldDetector.getString(statusString).equals(DetectorStatus.WAITING_FOR_CONFIG.toString())
+                                    || oldDetector.getString(statusString).equals(DetectorStatus.PAUSED.toString())) {
                                 // Check if config exists
                                 String rawConfig = messageHandler.getStore().get(configString
                                         + "-"

@@ -67,6 +67,18 @@ public class IntueriDetectorMessageHandler {
         this.config = config;
     }
 
+    public static Properties kafkaProperties(String id, String server) {
+        Properties properties = new Properties();
+        properties.put(StreamsConfig.APPLICATION_ID_CONFIG, id);
+        properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, server);
+        properties.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+        properties.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+        final String serializer = "org.apache.kafka.common.serialization.StringSerializer";
+        properties.put("key.serializer", serializer);
+        properties.put("value.serializer", serializer);
+        return properties;
+    }
+
     @EventListener(ContextRefreshedEvent.class)
     public void init() {
         kafkaTopicName = "intueri-detector-" + config.getId().toString();
@@ -85,18 +97,6 @@ public class IntueriDetectorMessageHandler {
         }));
     }
 
-    public static Properties kafkaProperties(String id, String server) {
-        Properties properties = new Properties();
-        properties.put(StreamsConfig.APPLICATION_ID_CONFIG, id);
-        properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, server);
-        properties.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
-        properties.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
-        final String serializer = "org.apache.kafka.common.serialization.StringSerializer";
-        properties.put("key.serializer", serializer);
-        properties.put("value.serializer", serializer);
-        return properties;
-    }
-
     /**
      * Internal wrapper for publishing a message
      *
@@ -112,8 +112,8 @@ public class IntueriDetectorMessageHandler {
                             .put(idString, config.getId())
                             .put("name", config.getName())
                             .put("status", message)
-                            .put("config", configurationUUID)
-                            .put("enabledRules", enabledRuleIds)
+                            .put("config", (configurationUUID != null) ? configurationUUID : JSONObject.NULL)
+                            .put("enabledRules", (enabledRuleIds != null) ? enabledRuleIds : JSONObject.NULL)
                             .toString()
             ));
         } else {
@@ -132,11 +132,9 @@ public class IntueriDetectorMessageHandler {
      * @param detectorStatus current Application DetectorStatus
      */
     public void updateStatus(DetectorStatus detectorStatus) {
-        if (!this.applicationDetectorStatus.equals(detectorStatus)) {
-            logger.info("Updating DetectorStatus to: " + detectorStatus.toString());
-            this.applicationDetectorStatus = detectorStatus;
-            this.publish(detectorStatus.toString(), MessageType.STATUS);
-        }
+        logger.info("Updating DetectorStatus to: " + detectorStatus.toString());
+        this.applicationDetectorStatus = detectorStatus;
+        this.publish(detectorStatus.toString(), MessageType.STATUS);
     }
 
     /**
@@ -144,11 +142,15 @@ public class IntueriDetectorMessageHandler {
      *
      * @param message Event to be published
      */
-    public void publishEvent(String message, String outputAdapters) {
+    public void publishEvent(String ruleId, String message, JSONArray outputAdapters) {
         JSONObject content = new JSONObject();
+        content.put("timestamp", System.currentTimeMillis());
+        content.put("ruleId", ruleId);
         content.put("outputs", outputAdapters);
         content.put("event", message);
 
+
+        logger.trace("Publishing detected event: " + content.toString(4));
         kafkaOutput.send(new ProducerRecord<>(
                 kafkaTopicName + "-out",
                 MessageType.EVENT.toString(),
