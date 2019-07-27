@@ -51,6 +51,7 @@ public class IntueriOutputMessageHandler {
         properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, server);
         properties.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
         properties.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+        properties.put("metadata.max.age.ms", 30000);
         return properties;
     }
 
