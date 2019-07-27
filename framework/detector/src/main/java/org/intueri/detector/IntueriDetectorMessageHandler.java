@@ -76,6 +76,7 @@ public class IntueriDetectorMessageHandler {
         final String serializer = "org.apache.kafka.common.serialization.StringSerializer";
         properties.put("key.serializer", serializer);
         properties.put("value.serializer", serializer);
+        properties.put("metadata.max.age.ms", 30000);
         return properties;
     }
 
